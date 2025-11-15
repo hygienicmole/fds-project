@@ -56,7 +56,10 @@ fds-project/
 │   ├── fgsm.py                # FGSM attack
 │   └── pgd.py                 # PGD attack
 ├── data/                      # CIFAR-10 dataset (auto-downloaded)
-├── models/                    # Saved model checkpoints
+├── models/                    # Model implementations and checkpoints
+│   ├── __init__.py           # Model module exports
+│   ├── resnet.py             # ResNet18 implementation with utilities
+│   ├── train.py              # Advanced training script with progress tracking
 │   └── checkpoints/          # Training checkpoints
 ├── notebooks/                 # Jupyter notebooks
 │   └── adversarial_attacks_demo.ipynb
@@ -68,8 +71,9 @@ fds-project/
 │   ├── model_utils.py        # Model utilities
 │   └── visualization.py      # Visualization functions
 ├── config.py                  # Configuration and hyperparameters
-├── train.py                   # Training script
+├── train.py                   # Simple training script
 ├── evaluate.py               # Evaluation script
+├── test_model.py             # Model testing script
 ├── requirements.txt          # Python dependencies
 └── README.md                 # This file
 ```
@@ -102,14 +106,23 @@ fds-project/
 
 The CIFAR-10 dataset will be automatically downloaded when you first run the training or evaluation scripts.
 
+4. **Test the installation** (optional):
+   ```bash
+   python test_model.py
+   ```
+
 ## Quick Start
 
 ### 1. Train a Model
 
-Train a ResNet18 model on CIFAR-10:
-
+**Option A - Simple training script**:
 ```bash
 python train.py --epochs 100
+```
+
+**Option B - Advanced training script with more features**:
+```bash
+python models/train.py --epochs 100 --optimizer sgd --scheduler multistep
 ```
 
 For adversarial training (more robust but slower):
@@ -156,6 +169,50 @@ python train.py --epochs 100 --adv-training --save-interval 10
 **Expected training time**:
 - GPU (NVIDIA RTX 3090): ~15 minutes for 100 epochs
 - CPU: ~2-3 hours for 100 epochs
+
+### Advanced Training (models/train.py)
+
+The advanced training script provides additional features:
+
+**Full training with all options**:
+```bash
+python models/train.py \
+    --epochs 100 \
+    --batch-size 128 \
+    --lr 0.1 \
+    --optimizer sgd \
+    --scheduler multistep \
+    --save-every 10 \
+    --early-stopping 20
+```
+
+**Resume training from checkpoint**:
+```bash
+python models/train.py --resume ./models/checkpoints/checkpoint_epoch_50.pth --epochs 100
+```
+
+**Arguments**:
+- `--epochs`: Number of training epochs (default: 100)
+- `--batch-size`: Training batch size (default: 128)
+- `--lr`: Initial learning rate (default: 0.1)
+- `--optimizer`: Optimizer choice: sgd, adam, adamw (default: sgd)
+- `--scheduler`: LR scheduler: multistep, cosine, plateau (default: multistep)
+- `--pretrained`: Use ImageNet pretrained weights
+- `--dropout`: Dropout probability (default: 0.0)
+- `--save-every`: Save checkpoint every N epochs (default: 10)
+- `--early-stopping`: Early stopping patience (epochs without improvement)
+- `--resume`: Path to checkpoint to resume from
+- `--no-tensorboard`: Disable TensorBoard logging
+
+**Features**:
+- Progress bars with tqdm
+- TensorBoard logging
+- Automatic best model saving
+- Training metrics tracking (JSON export)
+- Resume training capability
+- Early stopping support
+- Multiple optimizer options (SGD, Adam, AdamW)
+- Multiple scheduler options (MultiStep, Cosine, ReduceLROnPlateau)
 
 ### Evaluating Adversarial Robustness
 
@@ -263,6 +320,69 @@ adversarial_images = pgd.generate(clean_images, true_labels)
 - Iterative (multiple steps)
 - Random initialization helps escape local minima
 - Considered one of the strongest first-order attacks
+
+## ResNet18 Model API
+
+The project includes a comprehensive ResNet18 implementation optimized for CIFAR-10.
+
+### Model Creation
+
+```python
+from models import get_resnet18
+
+# Create model
+model = get_resnet18(
+    num_classes=10,        # Number of classes
+    pretrained=False,      # Use ImageNet pretrained weights
+    dropout=0.0,           # Dropout probability
+    device='cuda'          # Device to load on
+)
+```
+
+### Model Summary
+
+```python
+from models import model_summary, count_parameters
+
+# Print detailed model summary
+model_summary(model, input_size=(3, 32, 32), batch_size=1, device='cuda')
+
+# Count parameters
+total_params, trainable_params = count_parameters(model)
+print(f"Total: {total_params:,}, Trainable: {trainable_params:,}")
+```
+
+### Checkpoint Management
+
+```python
+from models import save_checkpoint, load_checkpoint
+
+# Save checkpoint
+save_checkpoint(
+    model, optimizer, epoch=10, accuracy=85.5, loss=0.45,
+    filepath='./models/checkpoint.pth',
+    scheduler=scheduler,
+    best_acc=87.0
+)
+
+# Load checkpoint
+info = load_checkpoint(
+    './models/checkpoint.pth',
+    model,
+    optimizer=optimizer,
+    scheduler=scheduler,
+    device='cuda'
+)
+
+print(f"Loaded epoch {info['epoch']}, accuracy {info['accuracy']:.2f}%")
+```
+
+### Feature Extraction
+
+```python
+# Extract features before classification layer
+features = model.get_features(images)  # Returns (batch_size, 512) tensor
+```
 
 ## Configuration
 
