@@ -1,0 +1,29 @@
+# Deep Learning Framework
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Data Science & Numerical Computing
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Progress Bars
+tqdm>=4.65.0
+
+# Jupyter Notebook Support
+jupyter>=1.0.0
+ipykernel>=6.23.0
+ipywidgets>=8.0.0
+
+# Utils
+Pillow>=9.5.0
+scikit-learn>=1.2.0
+
+# Adversarial Robustness (optional, for comparisons)
+advertorch>=0.2.4
+
+# Logging and Experiment Tracking
+tensorboard>=2.13.0
