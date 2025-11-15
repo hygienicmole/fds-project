@@ -125,6 +125,12 @@ python train.py --epochs 100
 python models/train.py --epochs 100 --optimizer sgd --scheduler multistep
 ```
 
+**Option C - Baseline training (50 epochs, recommended for quick start)**:
+```bash
+python train_baseline.py
+```
+This runs a complete baseline training with automatic metrics tracking and visualization generation. See [RUN_TRAINING.md](RUN_TRAINING.md) for details.
+
 For adversarial training (more robust but slower):
 
 ```bash

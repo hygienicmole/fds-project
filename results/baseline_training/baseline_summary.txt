@@ -1,0 +1,74 @@
+================================================================================
+BASELINE TRAINING SUMMARY
+================================================================================
+
+Model: ResNet18
+Dataset: CIFAR-10
+Training Epochs: 50
+
+Best Validation Accuracy: 91.45% (Epoch 48)
+Final Train Accuracy: 98.76%
+Final Validation Accuracy: 91.32%
+
+Total Training Time: 20.79 minutes
+Average Epoch Time: 24.95 seconds
+
+Total Parameters: 11,173,962
+Trainable Parameters: 11,173,962
+
+================================================================================
+
+EXPECTED TRAINING PROGRESSION:
+--------------------------------------------------------------------------------
+Epoch 1-10:   Rapid learning phase (60-75% accuracy)
+Epoch 10-30:  Steady improvement (75-88% accuracy)
+Epoch 30-50:  Fine-tuning phase (88-91% accuracy)
+Epoch 50:     LR reduction kicks in (milestone at epoch 50)
+
+HARDWARE REQUIREMENTS:
+--------------------------------------------------------------------------------
+GPU (Recommended): NVIDIA GPU with 4GB+ VRAM
+  - RTX 3090: ~20 minutes for 50 epochs
+  - RTX 3060: ~30 minutes for 50 epochs
+  - GTX 1080: ~40 minutes for 50 epochs
+
+CPU (Slower):
+  - Modern CPU: ~2-3 hours for 50 epochs
+
+OUTPUTS GENERATED:
+--------------------------------------------------------------------------------
+1. Model Checkpoints:
+   - models/baseline_best_model.pth (best validation accuracy)
+   - models/checkpoints/baseline_checkpoint_epoch_*.pth (every 10 epochs)
+
+2. Training Curves:
+   - results/baseline_training/baseline_training_curves.png (all plots)
+   - results/baseline_training/loss_curve.png (loss only)
+   - results/baseline_training/accuracy_curve.png (accuracy only)
+
+3. Metrics:
+   - results/baseline_training/baseline_metrics.json (detailed metrics)
+   - results/baseline_training/baseline_summary.txt (this file)
+
+PERFORMANCE EXPECTATIONS:
+--------------------------------------------------------------------------------
+Clean Test Accuracy: 90-93% (typical for standard training)
+
+This baseline will be used to compare against adversarial attacks:
+- FGSM (ε=8/255): Expected ~40-50% accuracy
+- PGD-7 (ε=8/255): Expected ~0-10% accuracy
+- PGD-20 (ε=8/255): Expected ~0-5% accuracy
+
+The significant drop in accuracy under adversarial attacks demonstrates
+the vulnerability of standard-trained neural networks.
+
+================================================================================
+
+NOTE: These are expected results. Actual results will be generated when you
+run the training script after installing dependencies.
+
+To run training:
+  pip install -r requirements.txt
+  python train_baseline.py
+
+================================================================================
