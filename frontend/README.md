@@ -65,7 +65,9 @@ frontend/
 │   │   ├── Footer.jsx    # Footer with links
 │   │   ├── Loading.jsx   # Loading spinner
 │   │   ├── ErrorMessage.jsx  # Error display
-│   │   └── AttackDemo.jsx    # Main interactive demo component
+│   │   ├── AttackDemo.jsx    # Main interactive demo component
+│   │   ├── ResultsDashboard.jsx  # Analytics dashboard with charts
+│   │   └── MethodologyExplainer.jsx  # Interactive attack methodology explainer
 │   ├── pages/            # Page components
 │   │   ├── Home.jsx      # Landing page
 │   │   ├── Demo.jsx      # Interactive demo page
@@ -216,6 +218,81 @@ Comprehensive interactive demo component featuring:
 - Clean, intuitive layout
 - Real-time parameter updates
 - Visual feedback for all interactions
+
+### ResultsDashboard
+
+Comprehensive analytics dashboard featuring:
+
+**Statistical Overview:**
+- Model baseline accuracy card
+- FGSM maximum ASR card
+- PGD maximum ASR card
+- Model parameters card
+
+**Interactive Visualizations:**
+- ASR vs Epsilon line charts (FGSM & PGD comparison)
+- Accuracy degradation charts (clean vs attacked)
+- Class-wise vulnerability horizontal bar charts
+- Attack method comparison radar charts
+- Responsive Recharts components with custom tooltips
+
+**Data Display:**
+- Detailed attack comparison table
+- Pre-computed adversarial examples grid
+- Key findings section with insights
+- Color-coded metrics for easy interpretation
+
+**Features:**
+- Automatic data loading from API
+- Custom chart tooltips with detailed information
+- Responsive design for all screen sizes
+- Educational content explaining results
+- Professional color scheme
+
+### MethodologyExplainer
+
+Interactive educational component featuring:
+
+**Tab Navigation:**
+- FGSM methodology tab
+- PGD methodology tab
+- Side-by-side comparison tab
+
+**FGSM Content:**
+- Mathematical formulation with KaTeX rendering
+- Step-by-step algorithm visualization (5 steps)
+- Animated gradient flow diagram
+- Python code implementation with syntax highlighting
+- Collapsible sections for better organization
+- Key insights and properties
+
+**PGD Content:**
+- Mathematical formulation with KaTeX rendering
+- Step-by-step algorithm visualization (7 steps)
+- Iterative process visualization
+- Python code implementation with syntax highlighting
+- Comparison with FGSM (visual bars)
+- Projection and iteration explanations
+
+**Comparison Tab:**
+- Side-by-side feature comparison cards
+- Detailed comparison table (9 aspects)
+- Visual progress bars for metrics
+- Key takeaways and use case recommendations
+- Trade-off analysis
+
+**Interactive Features:**
+- Expandable/collapsible sections
+- Animated algorithm flow (click to animate)
+- Syntax-highlighted code with react-syntax-highlighter
+- Mathematical equations with KaTeX
+- Color-coded step-by-step animations
+- Responsive design with gradient backgrounds
+
+**Dependencies:**
+- `katex` and `react-katex` for math rendering
+- `react-syntax-highlighter` for code display
+- Custom animations and transitions
 
 ## API Service
 

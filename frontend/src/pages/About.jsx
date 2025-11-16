@@ -1,9 +1,10 @@
-import { BookOpen, Code, Shield, Target } from 'lucide-react';
+import { BookOpen, Code } from 'lucide-react';
+import MethodologyExplainer from '../components/MethodologyExplainer';
 
 const About = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-12">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="section-title">About the Project</h1>
@@ -30,60 +31,8 @@ const About = () => {
           </p>
         </div>
 
-        {/* FGSM Section */}
-        <div className="card mb-8">
-          <h2 className="text-2xl font-bold mb-4 flex items-center">
-            <Shield className="h-6 w-6 mr-2 text-primary-600" />
-            FGSM (Fast Gradient Sign Method)
-          </h2>
-          <div className="space-y-4">
-            <p className="text-gray-700">
-              FGSM is a one-step adversarial attack introduced by Goodfellow et al. (2014). It
-              generates adversarial examples by perturbing the input in the direction of the
-              gradient of the loss function.
-            </p>
-            <div className="bg-gray-100 p-4 rounded-lg font-mono text-sm">
-              x_adv = x + ε · sign(∇_x J(θ, x, y))
-            </div>
-            <p className="text-gray-700">
-              Where:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li><strong>x</strong>: Original input image</li>
-              <li><strong>ε</strong>: Perturbation magnitude (epsilon)</li>
-              <li><strong>J</strong>: Loss function</li>
-              <li><strong>y</strong>: True label</li>
-              <li><strong>sign(·)</strong>: Sign function</li>
-            </ul>
-          </div>
-        </div>
-
-        {/* PGD Section */}
-        <div className="card mb-8">
-          <h2 className="text-2xl font-bold mb-4 flex items-center">
-            <Target className="h-6 w-6 mr-2 text-primary-600" />
-            PGD (Projected Gradient Descent)
-          </h2>
-          <div className="space-y-4">
-            <p className="text-gray-700">
-              PGD is an iterative adversarial attack introduced by Madry et al. (2017). It applies
-              multiple small steps of gradient ascent, projecting back to the allowed perturbation
-              region after each step.
-            </p>
-            <div className="bg-gray-100 p-4 rounded-lg font-mono text-sm">
-              x^(t+1) = Π_(x+S) (x^(t) + α · sign(∇_x J(θ, x^(t), y)))
-            </div>
-            <p className="text-gray-700">
-              Where:
-            </p>
-            <ul className="list-disc list-inside text-gray-700 space-y-2 ml-4">
-              <li><strong>x^(t)</strong>: Adversarial example at iteration t</li>
-              <li><strong>α</strong>: Step size</li>
-              <li><strong>Π</strong>: Projection onto allowed perturbation set</li>
-              <li><strong>S</strong>: L∞ ball of radius ε</li>
-            </ul>
-          </div>
-        </div>
+        {/* Interactive Methodology Explainer */}
+        <MethodologyExplainer />
 
         {/* Implementation Section */}
         <div className="card mb-8">
