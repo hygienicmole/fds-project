@@ -113,44 +113,70 @@ The CIFAR-10 dataset will be automatically downloaded when you first run the tra
 
 ## Quick Start
 
-### 1. Train a Model
+### Complete Experimental Pipeline (Recommended)
 
-**Option A - Simple training script**:
+Run the full pipeline from training to report generation:
+
+```bash
+# Step 1: Train baseline model (~60-90 min on GPU)
+python train_baseline.py
+
+# Step 2: Evaluate attacks (~5-10 min)
+python attacks/evaluate_attacks.py
+
+# Step 3: Hyperparameter analysis (~60 min on GPU)
+python experiments/hyperparameter_analysis.py
+
+# Step 4: Generate comprehensive visualizations (~2-5 min)
+python generate_visualizations.py --attack fgsm
+python generate_visualizations.py --attack pgd
+
+# Step 5: Generate publication-ready reports (~1 sec)
+python utils/report_generator.py
+```
+
+After completion, check:
+- `reports/latex_tables.tex` - LaTeX tables for your paper
+- `reports/EXPERIMENTAL_SUMMARY.md` - Complete markdown summary
+- `results/` - All experimental results and visualizations
+
+### Quick Demo (Without Training)
+
+Test attacks on pre-trained model:
+
+```bash
+# Demo FGSM attack
+python demo_fgsm.py
+
+# Demo PGD attack
+python demo_pgd.py
+
+# Interactive notebook
+jupyter notebook notebooks/adversarial_attacks_demo.ipynb
+```
+
+### Individual Components
+
+**Option A - Baseline training (recommended)**:
+```bash
+python train_baseline.py
+```
+Complete 200-epoch training with metrics tracking and visualization.
+See [RUN_TRAINING.md](RUN_TRAINING.md) for details.
+
+**Option B - Simple training**:
 ```bash
 python train.py --epochs 100
 ```
 
-**Option B - Advanced training script with more features**:
+**Option C - Advanced training**:
 ```bash
 python models/train.py --epochs 100 --optimizer sgd --scheduler multistep
 ```
 
-**Option C - Baseline training (50 epochs, recommended for quick start)**:
-```bash
-python train_baseline.py
-```
-This runs a complete baseline training with automatic metrics tracking and visualization generation. See [RUN_TRAINING.md](RUN_TRAINING.md) for details.
-
-For adversarial training (more robust but slower):
-
+**Adversarial training** (more robust but slower):
 ```bash
 python train.py --epochs 100 --adv-training
-```
-
-### 2. Evaluate Adversarial Robustness
-
-Evaluate the trained model against adversarial attacks:
-
-```bash
-python evaluate.py --model-path ./models/best_model.pth --eval-fgsm --eval-pgd --visualize
-```
-
-### 3. Interactive Notebook
-
-Launch the Jupyter notebook for interactive experimentation:
-
-```bash
-jupyter notebook notebooks/adversarial_attacks_demo.ipynb
 ```
 
 ## Usage
@@ -220,31 +246,142 @@ python models/train.py --resume ./models/checkpoints/checkpoint_epoch_50.pth --e
 - Multiple optimizer options (SGD, Adam, AdamW)
 - Multiple scheduler options (MultiStep, Cosine, ReduceLROnPlateau)
 
-### Evaluating Adversarial Robustness
+### Attack Evaluation
 
-**Full evaluation**:
+**Comprehensive attack evaluation** (recommended):
 ```bash
-python evaluate.py --model-path ./models/best_model.pth
+python attacks/evaluate_attacks.py
 ```
 
-**Evaluation options**:
+Evaluates FGSM and PGD with multiple configurations:
+- FGSM: ε ∈ {0.01, 0.03, 0.05, 0.1}
+- PGD: 12 configurations (4 epsilon × 3 iteration counts)
+- Generates comparison plots and visual grids
+- Saves results to `results/attack_evaluation/attack_results.json`
+
+**Custom configuration**:
 ```bash
-python evaluate.py \
-    --model-path ./models/best_model.pth \
+python attacks/evaluate_attacks.py \
+    --model-path ./models/baseline_best_model.pth \
+    --fgsm-epsilons 0.01 0.02 0.03 \
+    --pgd-iterations 10 20 40 \
     --batch-size 100 \
-    --eval-fgsm \
-    --eval-pgd \
-    --visualize \
-    --num-vis 10
+    --save-dir ./results/custom_eval
 ```
 
-**Arguments**:
-- `--model-path`: Path to the trained model checkpoint
-- `--batch-size`: Batch size for evaluation (default: 100)
-- `--eval-fgsm`: Evaluate FGSM attack
-- `--eval-pgd`: Evaluate PGD attack
-- `--visualize`: Generate visualizations of adversarial examples
-- `--num-vis`: Number of examples to visualize (default: 10)
+**Quick evaluation** (simple script):
+```bash
+python evaluate.py --model-path ./models/best_model.pth --eval-fgsm --eval-pgd --visualize
+```
+
+See [ATTACK_EVALUATION_GUIDE.md](ATTACK_EVALUATION_GUIDE.md) for complete documentation.
+
+### Hyperparameter Analysis
+
+**Full analysis** (~60 minutes on GPU):
+```bash
+python experiments/hyperparameter_analysis.py
+```
+
+Performs comprehensive sweep:
+- Epsilon range: 0.001 to 0.3 (15 logarithmically-spaced values)
+- PGD iterations: [5, 10, 20, 40]
+- Statistical analysis with mean and std
+- 4 comprehensive visualization plots
+- Results saved to `results/hyperparameter_analysis/`
+
+**Quick test** (~6 minutes):
+```bash
+python experiments/hyperparameter_analysis.py --num-batches 10
+```
+
+**FGSM only** (skip PGD for speed):
+```bash
+python experiments/hyperparameter_analysis.py --skip-pgd-epsilon --skip-iteration-analysis
+```
+
+**Custom epsilon range**:
+```bash
+python experiments/hyperparameter_analysis.py \
+    --epsilon-min 0.001 \
+    --epsilon-max 0.1 \
+    --num-epsilons 20
+```
+
+See [experiments/README.md](experiments/README.md) for detailed documentation.
+
+### Comprehensive Visualizations
+
+**Generate all visualizations** for an attack:
+```bash
+# FGSM visualizations
+python generate_visualizations.py --attack fgsm --epsilon 0.03
+
+# PGD visualizations
+python generate_visualizations.py --attack pgd --epsilon 0.03 --pgd-iterations 20
+```
+
+Generates 6 types of visualizations:
+1. **Comprehensive comparison** - 20 samples side-by-side
+2. **Perturbation heatmaps** - Detailed 4-column analysis
+3. **Confusion matrix (clean)** - Baseline predictions
+4. **Confusion matrix (adversarial)** - Attack predictions
+5. **Class-wise attack success** - Per-class vulnerability
+6. **Confidence distributions** - Statistical analysis
+
+**Custom configuration**:
+```bash
+python generate_visualizations.py \
+    --attack pgd \
+    --epsilon 0.05 \
+    --pgd-iterations 40 \
+    --num-samples 2000 \
+    --save-dir ./results/custom_viz
+```
+
+All visualizations saved to `results/visualizations/` with detailed statistics.
+
+See [VISUALIZATION_GUIDE.md](VISUALIZATION_GUIDE.md) for interpretation guidelines.
+
+### Report Generation
+
+**Generate publication-ready reports**:
+```bash
+python utils/report_generator.py
+```
+
+Creates:
+- **`reports/latex_tables.tex`** - 5 LaTeX tables ready for papers
+- **`reports/EXPERIMENTAL_SUMMARY.md`** - Complete markdown summary
+
+**What's included:**
+
+**LaTeX Tables:**
+1. Attack Evaluation Results (all configurations)
+2. FGSM Epsilon Analysis
+3. PGD Iteration Effect
+4. Baseline Training Results
+5. Hyperparameter Analysis Summary
+
+**Markdown Summary:**
+- Executive summary
+- Baseline model performance
+- Complete attack results
+- Hyperparameter analysis findings
+- Key observations and recommendations
+- Figure catalog with paths
+- Statistical significance notes
+
+**Usage in LaTeX**:
+```latex
+\usepackage{booktabs}
+\input{reports/latex_tables.tex}
+
+% Reference tables
+As shown in Table~\ref{tab:attack_eval}, the model exhibits...
+```
+
+See [REPORT_GENERATION_GUIDE.md](REPORT_GENERATION_GUIDE.md) for complete usage.
 
 ### Using the Jupyter Notebook
 
@@ -507,17 +644,122 @@ All visualizations are saved to `results/visualizations/`.
    - Ensure all dependencies are installed: `pip install -r requirements.txt`
    - Check Python version (3.8+ required)
 
+## Documentation
+
+This project includes comprehensive documentation for all components:
+
+### Core Documentation
+
+- **[docs/methodology.md](docs/methodology.md)** - Complete mathematical explanation of FGSM and PGD
+  - Mathematical foundations and formulations
+  - Algorithm details and pseudocode
+  - Perturbation constraints and $L_p$ norms
+  - Implementation details and best practices
+  - Evaluation metrics definitions
+  - References to foundational papers
+
+- **[docs/experiments.md](docs/experiments.md)** - Complete experimental design and results
+  - All experimental configurations
+  - Expected results and benchmarks
+  - Statistical analysis methodology
+  - Computational performance benchmarks
+  - Reproducibility guidelines
+  - Summary of key findings
+
+### Component-Specific Guides
+
+- **[RUN_TRAINING.md](RUN_TRAINING.md)** - Baseline training guide
+- **[EXPECTED_RESULTS.md](EXPECTED_RESULTS.md)** - Expected training outcomes
+- **[ATTACK_EVALUATION_GUIDE.md](ATTACK_EVALUATION_GUIDE.md)** - Attack evaluation documentation
+- **[experiments/README.md](experiments/README.md)** - Hyperparameter analysis guide
+- **[VISUALIZATION_GUIDE.md](VISUALIZATION_GUIDE.md)** - Visualization interpretation
+- **[REPORT_GENERATION_GUIDE.md](REPORT_GENERATION_GUIDE.md)** - Report generation usage
+- **[attacks/README.md](attacks/README.md)** - FGSM and PGD API documentation
+
+### Quick Reference
+
+**Want to understand the math behind attacks?**
+→ Read [docs/methodology.md](docs/methodology.md)
+
+**Want to know what experiments were run?**
+→ Read [docs/experiments.md](docs/experiments.md)
+
+**Want to train the model?**
+→ Follow [RUN_TRAINING.md](RUN_TRAINING.md)
+
+**Want to evaluate attacks?**
+→ Use [ATTACK_EVALUATION_GUIDE.md](ATTACK_EVALUATION_GUIDE.md)
+
+**Want to generate visualizations?**
+→ Check [VISUALIZATION_GUIDE.md](VISUALIZATION_GUIDE.md)
+
+**Want to create a report?**
+→ See [REPORT_GENERATION_GUIDE.md](REPORT_GENERATION_GUIDE.md)
+
+## Project Structure (Updated)
+
+```
+fds-project/
+├── docs/                               # Comprehensive documentation
+│   ├── methodology.md                  # Mathematical details of attacks
+│   └── experiments.md                  # Experimental design and results
+├── attacks/                            # Attack implementations
+│   ├── __init__.py
+│   ├── fgsm.py                        # FGSM implementation
+│   ├── pgd.py                         # PGD implementation
+│   ├── evaluate_attacks.py            # Comprehensive evaluation script
+│   └── README.md                      # Attack API documentation
+├── experiments/                        # Experimental analysis scripts
+│   ├── hyperparameter_analysis.py     # Epsilon/iteration sweep
+│   └── README.md                      # Experiment documentation
+├── models/                            # Model implementations
+│   ├── __init__.py
+│   ├── resnet.py                      # ResNet18 for CIFAR-10
+│   └── train.py                       # Advanced training script
+├── utils/                             # Utilities
+│   ├── __init__.py
+│   ├── data_loader.py                 # CIFAR-10 data loading
+│   ├── model_utils.py                 # Model utilities
+│   ├── visualization.py               # Comprehensive visualizations
+│   └── report_generator.py            # Publication report generator
+├── results/                           # Experimental results (gitignored)
+│   ├── attack_evaluation/             # Attack evaluation results
+│   ├── hyperparameter_analysis/       # Parameter sweep results
+│   ├── baseline_training/             # Training metrics
+│   └── visualizations/                # Generated visualizations
+├── reports/                           # Generated reports
+│   ├── latex_tables.tex               # LaTeX tables for papers
+│   └── EXPERIMENTAL_SUMMARY.md        # Complete markdown summary
+├── notebooks/                         # Jupyter notebooks
+│   └── adversarial_attacks_demo.ipynb # Interactive demo
+├── train_baseline.py                  # Baseline training (200 epochs)
+├── generate_visualizations.py         # Visualization generator
+├── demo_fgsm.py                       # FGSM demo
+├── demo_pgd.py                        # PGD demo
+├── config.py                          # Configuration
+├── requirements.txt                   # Dependencies
+├── RUN_TRAINING.md                    # Training guide
+├── EXPECTED_RESULTS.md                # Expected outcomes
+├── ATTACK_EVALUATION_GUIDE.md         # Evaluation guide
+├── VISUALIZATION_GUIDE.md             # Visualization guide
+├── REPORT_GENERATION_GUIDE.md         # Report guide
+└── README.md                          # This file
+```
+
 ## Future Enhancements
 
 Potential improvements to this project:
 
-- [ ] Implement C&W attack
-- [ ] Add AutoAttack evaluation
-- [ ] Implement certified defenses
-- [ ] Add more datasets (ImageNet, MNIST)
-- [ ] Implement adversarial training variants (TRADES, MART)
-- [ ] Add transferability experiments
+- [ ] Implement C&W attack (L2-norm optimization)
+- [ ] Add AutoAttack evaluation (ensemble of attacks)
+- [ ] Implement certified defenses (randomized smoothing, IBP)
+- [ ] Add more datasets (ImageNet, CIFAR-100, MNIST)
+- [ ] Implement adversarial training variants (TRADES, MART, AWP)
+- [ ] Add transferability experiments across models
 - [ ] Implement defensive distillation
+- [ ] Add gradient masking detection
+- [ ] Implement adaptive attacks
+- [ ] Add model interpretability tools
 
 ## License
 

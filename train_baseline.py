@@ -26,7 +26,55 @@ import config
 
 
 class BaselineTrainer:
-    """Baseline trainer for ResNet18 on CIFAR-10"""
+    """
+    Baseline Trainer for ResNet18 on CIFAR-10
+
+    This class handles the complete training pipeline for a ResNet18 model on the
+    CIFAR-10 dataset, including training, validation, metrics tracking, and
+    visualization generation.
+
+    The trainer implements standard supervised learning with:
+    - SGD optimizer with momentum
+    - MultiStepLR learning rate scheduling
+    - Cross-entropy loss
+    - Automatic best model checkpointing
+    - Comprehensive metrics logging
+
+    Attributes:
+        model (nn.Module): ResNet18 model to train
+        train_loader (DataLoader): Training data loader
+        test_loader (DataLoader): Validation/test data loader
+        optimizer (Optimizer): PyTorch optimizer (typically SGD)
+        scheduler (LRScheduler): Learning rate scheduler (typically MultiStepLR)
+        criterion (nn.Module): Loss function (typically CrossEntropyLoss)
+        device (torch.device): Device to train on (cuda or cpu)
+        num_epochs (int): Total number of training epochs
+
+        train_losses (list): Training loss history
+        train_accuracies (list): Training accuracy history
+        val_losses (list): Validation loss history
+        val_accuracies (list): Validation accuracy history
+        learning_rates (list): Learning rate history
+        epoch_times (list): Time taken per epoch
+
+        best_val_acc (float): Best validation accuracy achieved
+        best_epoch (int): Epoch number of best validation accuracy
+        results_dir (str): Directory to save results and visualizations
+
+    Example:
+        >>> model = get_resnet18(num_classes=10, device='cuda')
+        >>> train_loader, test_loader = get_cifar10_loaders()
+        >>> optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+        >>> scheduler = MultiStepLR(optimizer, milestones=[100, 150], gamma=0.1)
+        >>> criterion = nn.CrossEntropyLoss()
+        >>>
+        >>> trainer = BaselineTrainer(
+        ...     model, train_loader, test_loader, optimizer, scheduler,
+        ...     criterion, device='cuda', num_epochs=200
+        ... )
+        >>> trainer.train()
+        >>> trainer.save_metrics()
+    """
 
     def __init__(
         self,
@@ -39,6 +87,19 @@ class BaselineTrainer:
         device,
         num_epochs=50
     ):
+        """
+        Initialize the baseline trainer.
+
+        Args:
+            model (nn.Module): PyTorch model to train
+            train_loader (DataLoader): Training data loader
+            test_loader (DataLoader): Validation/test data loader
+            optimizer (Optimizer): PyTorch optimizer
+            scheduler (LRScheduler): Learning rate scheduler
+            criterion (nn.Module): Loss function
+            device (torch.device or str): Device to train on ('cuda' or 'cpu')
+            num_epochs (int, optional): Number of training epochs. Default: 50
+        """
         self.model = model
         self.train_loader = train_loader
         self.test_loader = test_loader
@@ -48,7 +109,7 @@ class BaselineTrainer:
         self.device = device
         self.num_epochs = num_epochs
 
-        # Metrics
+        # Metrics tracking
         self.train_losses = []
         self.train_accuracies = []
         self.val_losses = []
@@ -65,7 +126,20 @@ class BaselineTrainer:
         os.makedirs(self.results_dir, exist_ok=True)
 
     def train_epoch(self, epoch):
-        """Train for one epoch"""
+        """
+        Train the model for one epoch.
+
+        Performs one complete pass through the training data, computing gradients
+        and updating model parameters. Tracks loss and accuracy metrics.
+
+        Args:
+            epoch (int): Current epoch number (0-indexed)
+
+        Returns:
+            tuple: (average_loss, accuracy)
+                - average_loss (float): Mean training loss for the epoch
+                - accuracy (float): Training accuracy as percentage (0-100)
+        """
         self.model.train()
         running_loss = 0.0
         correct = 0
