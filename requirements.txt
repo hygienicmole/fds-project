@@ -27,3 +27,9 @@ advertorch>=0.2.4
 
 # Logging and Experiment Tracking
 tensorboard>=2.13.0
+
+# API Backend (FastAPI)
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+pydantic>=2.0.0

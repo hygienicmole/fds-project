@@ -397,6 +397,55 @@ To use:
 2. Navigate to `notebooks/adversarial_attacks_demo.ipynb`
 3. Run cells sequentially
 
+### FastAPI Backend (Web API)
+
+**Start the API server**:
+```bash
+uvicorn app.backend:app --reload --host 0.0.0.0 --port 8000
+```
+
+**Access interactive documentation**:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+**Available Endpoints**:
+- `GET /model-info` - Get model information and stats
+- `POST /upload` - Upload and classify an image
+- `POST /attack` - Generate adversarial example
+- `GET /example-results` - Get pre-computed results
+- `GET /health` - Health check
+
+**Example API usage**:
+```bash
+# Get model info
+curl http://localhost:8000/model-info
+
+# Upload image
+curl -X POST -F "file=@cat.jpg" http://localhost:8000/upload
+
+# Generate FGSM attack
+curl -X POST \
+  -F "file=@cat.jpg" \
+  -F "attack_type=fgsm" \
+  -F "epsilon=0.03" \
+  http://localhost:8000/attack
+
+# Generate PGD attack
+curl -X POST \
+  -F "file=@cat.jpg" \
+  -F "attack_type=pgd" \
+  -F "epsilon=0.03" \
+  -F "pgd_iterations=20" \
+  http://localhost:8000/attack
+```
+
+**Test the API**:
+```bash
+python test_api.py
+```
+
+See [docs/API.md](docs/API.md) for complete API documentation with examples.
+
 ## Adversarial Attacks
 
 ### FGSM (Fast Gradient Sign Method)
@@ -675,6 +724,7 @@ This project includes comprehensive documentation for all components:
 - **[VISUALIZATION_GUIDE.md](VISUALIZATION_GUIDE.md)** - Visualization interpretation
 - **[REPORT_GENERATION_GUIDE.md](REPORT_GENERATION_GUIDE.md)** - Report generation usage
 - **[attacks/README.md](attacks/README.md)** - FGSM and PGD API documentation
+- **[docs/API.md](docs/API.md)** - FastAPI backend documentation and usage
 
 ### Quick Reference
 
@@ -702,7 +752,11 @@ This project includes comprehensive documentation for all components:
 fds-project/
 ├── docs/                               # Comprehensive documentation
 │   ├── methodology.md                  # Mathematical details of attacks
-│   └── experiments.md                  # Experimental design and results
+│   ├── experiments.md                  # Experimental design and results
+│   └── API.md                          # FastAPI backend documentation
+├── app/                                # FastAPI backend application
+│   ├── __init__.py                     # App package initialization
+│   └── backend.py                      # FastAPI server with all endpoints
 ├── attacks/                            # Attack implementations
 │   ├── __init__.py
 │   ├── fgsm.py                        # FGSM implementation
