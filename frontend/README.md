@@ -64,7 +64,8 @@ frontend/
 │   │   ├── Navbar.jsx    # Navigation bar
 │   │   ├── Footer.jsx    # Footer with links
 │   │   ├── Loading.jsx   # Loading spinner
-│   │   └── ErrorMessage.jsx  # Error display
+│   │   ├── ErrorMessage.jsx  # Error display
+│   │   └── AttackDemo.jsx    # Main interactive demo component
 │   ├── pages/            # Page components
 │   │   ├── Home.jsx      # Landing page
 │   │   ├── Demo.jsx      # Interactive demo page
@@ -176,6 +177,45 @@ Error display with:
 - Error icon
 - Error message
 - Optional retry button
+
+### AttackDemo
+
+Comprehensive interactive demo component featuring:
+
+**Image Handling:**
+- File upload with drag-and-drop
+- File validation (type, size)
+- Image preview
+- Sample selection (placeholder for CIFAR-10 test set)
+
+**Attack Configuration:**
+- Attack type selector (FGSM/PGD)
+- Epsilon slider with visual feedback (0.001-0.3)
+- PGD-specific controls:
+  - Iterations slider (5-100)
+  - Step size (alpha) slider
+  - Random initialization toggle
+- Targeted attack option with class selection
+
+**Results Display:**
+- Attack success indicator
+- Side-by-side prediction comparison
+- Perturbation statistics (L0, L1, L2, L∞ norms)
+- Visual comparison:
+  - Original image
+  - Adversarial image
+  - Amplified perturbation visualization
+- Download functionality for all images
+- Educational tooltips and information
+
+**UI Features:**
+- Collapsible info panel
+- Loading states with messages
+- Error handling with retry
+- Responsive design
+- Clean, intuitive layout
+- Real-time parameter updates
+- Visual feedback for all interactions
 
 ## API Service
 
