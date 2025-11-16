@@ -128,6 +128,93 @@ const api = {
   },
 
   /**
+   * Generate batch adversarial attacks on multiple images
+   * @param {Array<File>} files - Array of image files to attack
+   * @param {Object} params - Attack parameters
+   * @param {string} params.attack_type - 'fgsm' or 'pgd'
+   * @param {number} params.epsilon - Perturbation magnitude (0-1)
+   * @param {number} params.pgd_alpha - PGD step size
+   * @param {number} params.pgd_iterations - PGD number of iterations
+   * @param {boolean} params.random_start - Use random start for PGD
+   * @param {string} params.export_format - 'json' or 'csv'
+   * @returns {Promise<Object>} Batch attack results with summary and individual results
+   */
+  generateBatchAttack: async (files, params = {}) => {
+    const formData = new FormData();
+
+    // Add all files
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+
+    // Add attack parameters
+    const defaultParams = {
+      attack_type: 'fgsm',
+      epsilon: 0.03,
+      pgd_alpha: 0.01,
+      pgd_iterations: 20,
+      random_start: true,
+      export_format: 'json',
+    };
+
+    const attackParams = { ...defaultParams, ...params };
+
+    Object.entries(attackParams).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        formData.append(key, value);
+      }
+    });
+
+    const response = await apiClient.post('/batch-attack', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 180000, // 3 minutes for batch processing
+    });
+
+    return response.data;
+  },
+
+  /**
+   * Generate PGD attack with iteration-by-iteration results for visualization
+   * @param {File} file - Image file to attack
+   * @param {Object} params - Attack parameters
+   * @param {number} params.epsilon - Perturbation magnitude (0-1)
+   * @param {number} params.pgd_alpha - PGD step size
+   * @param {number} params.pgd_iterations - PGD number of iterations
+   * @param {boolean} params.random_start - Use random start for PGD
+   * @returns {Promise<Object>} Attack iterations with images and predictions at each step
+   */
+  generateAttackIterations: async (file, params = {}) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const defaultParams = {
+      epsilon: 0.03,
+      pgd_alpha: 0.0075,
+      pgd_iterations: 20,
+      random_start: true,
+    };
+
+    const attackParams = { ...defaultParams, ...params };
+
+    Object.entries(attackParams).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        formData.append(key, value);
+      }
+    });
+
+    const response = await apiClient.post('/attack-iterations', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 120000, // 2 minutes for iteration tracking
+    });
+
+    return response.data;
+  },
+
+  /**
    * Get pre-computed example attack results
    * @returns {Promise<Array>} List of example attack results
    */

@@ -814,6 +814,375 @@ async def generate_attack(
         )
 
 
+@app.post("/batch-attack")
+async def generate_batch_attack(
+    files: List[UploadFile] = File(...),
+    attack_type: str = Form('fgsm'),
+    epsilon: float = Form(0.03),
+    pgd_alpha: float = Form(0.01),
+    pgd_iterations: int = Form(20),
+    random_start: bool = Form(True),
+    export_format: str = Form('json')  # 'json' or 'csv'
+):
+    """
+    Generate adversarial examples for multiple images in batch.
+
+    Args:
+        files: List of image files to attack
+        attack_type: Type of attack ('fgsm' or 'pgd')
+        epsilon: Perturbation magnitude (0.0-1.0)
+        pgd_alpha: Step size for PGD
+        pgd_iterations: Number of PGD iterations
+        random_start: Use random start for PGD
+        export_format: Export format ('json' or 'csv')
+
+    Returns:
+        Batch attack results with aggregate statistics
+
+    Example:
+        ```bash
+        curl -X POST \
+          -F "files=@image1.png" \
+          -F "files=@image2.png" \
+          -F "files=@image3.png" \
+          -F "attack_type=pgd" \
+          -F "epsilon=0.03" \
+          http://localhost:8000/batch-attack
+        ```
+    """
+    try:
+        # Validate parameters
+        if epsilon < 0 or epsilon > 1:
+            raise HTTPException(
+                status_code=400,
+                detail="epsilon must be between 0 and 1"
+            )
+
+        if attack_type not in ['fgsm', 'pgd']:
+            raise HTTPException(
+                status_code=400,
+                detail="attack_type must be 'fgsm' or 'pgd'"
+            )
+
+        if export_format not in ['json', 'csv']:
+            raise HTTPException(
+                status_code=400,
+                detail="export_format must be 'json' or 'csv'"
+            )
+
+        if len(files) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="At least one file must be provided"
+            )
+
+        if len(files) > 50:
+            raise HTTPException(
+                status_code=400,
+                detail="Maximum 50 files allowed per batch"
+            )
+
+        # Get model
+        model = model_manager.get_model()
+
+        # Create attack
+        attack_params = {
+            'epsilon': epsilon,
+            'targeted': False
+        }
+
+        if attack_type == 'pgd':
+            attack_params.update({
+                'alpha': pgd_alpha,
+                'iterations': pgd_iterations,
+                'random_start': random_start
+            })
+
+        attack = model_manager.create_attack(attack_type, **attack_params)
+
+        # Process all images
+        results = []
+        total_success = 0
+        total_linf = 0.0
+        total_l2 = 0.0
+        total_l1 = 0.0
+        class_accuracy = {cls: {'total': 0, 'correct': 0, 'attacked': 0}
+                          for cls in CIFAR10_CLASSES}
+
+        import time
+        start_time = time.time()
+
+        for idx, file in enumerate(files):
+            try:
+                # Read and process image
+                contents = await file.read()
+                image = Image.open(io.BytesIO(contents)).convert('RGB')
+                image_tensor = preprocess_image(image)
+
+                # Get original prediction
+                original_pred = predict(model, image_tensor)
+                labels = torch.tensor([original_pred.predicted_class]).to(DEVICE)
+
+                # Generate adversarial example
+                adversarial_tensor = attack.generate(image_tensor, labels)
+
+                # Get adversarial prediction
+                adversarial_pred = predict(model, adversarial_tensor)
+
+                # Compute statistics
+                success = (adversarial_pred.predicted_class != original_pred.predicted_class)
+                pert_stats = compute_perturbation_stats(image_tensor, adversarial_tensor)
+
+                # Update aggregates
+                if success:
+                    total_success += 1
+                total_linf += pert_stats['linf_norm']
+                total_l2 += pert_stats['l2_norm']
+                total_l1 += pert_stats['l1_norm']
+
+                # Update class-wise stats
+                orig_class_name = CIFAR10_CLASSES[original_pred.predicted_class]
+                class_accuracy[orig_class_name]['total'] += 1
+                if success:
+                    class_accuracy[orig_class_name]['attacked'] += 1
+                else:
+                    class_accuracy[orig_class_name]['correct'] += 1
+
+                # Store result
+                result = {
+                    'image_id': idx,
+                    'filename': file.filename,
+                    'original_class': CIFAR10_CLASSES[original_pred.predicted_class],
+                    'original_confidence': float(original_pred.confidence),
+                    'adversarial_class': CIFAR10_CLASSES[adversarial_pred.predicted_class],
+                    'adversarial_confidence': float(adversarial_pred.confidence),
+                    'attack_success': success,
+                    'linf_norm': float(pert_stats['linf_norm']),
+                    'l2_norm': float(pert_stats['l2_norm']),
+                    'l1_norm': float(pert_stats['l1_norm']),
+                    'l0_norm': int(pert_stats['l0_norm'])
+                }
+                results.append(result)
+
+            except Exception as e:
+                # Add error result for this image
+                results.append({
+                    'image_id': idx,
+                    'filename': file.filename,
+                    'error': str(e),
+                    'attack_success': False
+                })
+
+        end_time = time.time()
+        processing_time = end_time - start_time
+
+        # Compute aggregate statistics
+        num_images = len(results)
+        valid_results = [r for r in results if 'error' not in r]
+        num_valid = len(valid_results)
+
+        if num_valid > 0:
+            attack_success_rate = (total_success / num_valid) * 100
+            avg_linf = total_linf / num_valid
+            avg_l2 = total_l2 / num_valid
+            avg_l1 = total_l1 / num_valid
+        else:
+            attack_success_rate = 0.0
+            avg_linf = avg_l2 = avg_l1 = 0.0
+
+        # Prepare response
+        response = {
+            'summary': {
+                'total_images': num_images,
+                'successful_attacks': total_success,
+                'failed_attacks': num_valid - total_success,
+                'errors': num_images - num_valid,
+                'attack_success_rate': round(attack_success_rate, 2),
+                'average_linf_norm': round(avg_linf, 6),
+                'average_l2_norm': round(avg_l2, 6),
+                'average_l1_norm': round(avg_l1, 6),
+                'processing_time_seconds': round(processing_time, 2),
+                'images_per_second': round(num_images / processing_time, 2)
+            },
+            'attack_parameters': {
+                'attack_type': attack_type,
+                'epsilon': epsilon,
+                'pgd_alpha': pgd_alpha if attack_type == 'pgd' else None,
+                'pgd_iterations': pgd_iterations if attack_type == 'pgd' else None,
+                'random_start': random_start if attack_type == 'pgd' else None
+            },
+            'class_wise_statistics': {
+                cls: {
+                    'total': stats['total'],
+                    'robust': stats['correct'],
+                    'vulnerable': stats['attacked'],
+                    'robustness_rate': round((stats['correct'] / stats['total'] * 100)
+                                             if stats['total'] > 0 else 0, 2)
+                }
+                for cls, stats in class_accuracy.items()
+                if stats['total'] > 0
+            },
+            'results': results
+        }
+
+        # Export as CSV if requested
+        if export_format == 'csv':
+            import csv
+            from io import StringIO
+
+            output = StringIO()
+            if valid_results:
+                writer = csv.DictWriter(output, fieldnames=valid_results[0].keys())
+                writer.writeheader()
+                writer.writerows(valid_results)
+
+            return JSONResponse(content={
+                **response,
+                'csv_export': output.getvalue()
+            })
+
+        return JSONResponse(content=response)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error in batch attack: {str(e)}\n{traceback.format_exc()}"
+        )
+
+
+@app.post("/attack-iterations")
+async def generate_attack_with_iterations(
+    file: UploadFile = File(...),
+    epsilon: float = Form(0.03),
+    pgd_alpha: float = Form(0.0075),
+    pgd_iterations: int = Form(20),
+    random_start: bool = Form(True)
+):
+    """
+    Generate PGD attack and return all intermediate iterations for visualization.
+
+    This endpoint is specifically designed for real-time attack visualization,
+    returning the adversarial image at each iteration step.
+
+    Args:
+        file: Image file to attack
+        epsilon: Perturbation magnitude (0.0-1.0)
+        pgd_alpha: Step size for PGD
+        pgd_iterations: Number of PGD iterations
+        random_start: Use random start for PGD
+
+    Returns:
+        List of iterations with images and predictions at each step
+    """
+    try:
+        # Validate parameters
+        if epsilon < 0 or epsilon > 1:
+            raise HTTPException(
+                status_code=400,
+                detail="epsilon must be between 0 and 1"
+            )
+
+        # Read and process image
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert('RGB')
+        image_tensor = preprocess_image(image)
+
+        # Get model and original prediction
+        model = model_manager.get_model()
+        original_pred = predict(model, image_tensor)
+        labels = torch.tensor([original_pred.predicted_class]).to(DEVICE)
+
+        # Initialize iteration storage
+        iterations = []
+
+        # Store original image
+        iterations.append({
+            'iteration': 0,
+            'image': tensor_to_base64(image_tensor),
+            'predicted_class': CIFAR10_CLASSES[original_pred.predicted_class],
+            'confidence': float(original_pred.confidence),
+            'perturbation_linf': 0.0,
+            'is_adversarial': False
+        })
+
+        # Generate PGD attack with iteration tracking
+        # Initialize adversarial image
+        if random_start:
+            perturbation = torch.empty_like(image_tensor).uniform_(-epsilon, epsilon)
+            adversarial_tensor = torch.clamp(image_tensor + perturbation, 0, 1)
+        else:
+            adversarial_tensor = image_tensor.clone()
+
+        # Iterative attack
+        for i in range(pgd_iterations):
+            adversarial_tensor.requires_grad = True
+
+            # Forward pass
+            output = model(adversarial_tensor)
+
+            # Calculate loss
+            loss = torch.nn.functional.cross_entropy(output, labels)
+
+            # Backward pass
+            model.zero_grad()
+            loss.backward()
+
+            # Update with gradient sign
+            gradient_sign = adversarial_tensor.grad.sign()
+            adversarial_tensor = adversarial_tensor + pgd_alpha * gradient_sign
+
+            # Project back to epsilon-ball
+            perturbation = torch.clamp(
+                adversarial_tensor - image_tensor,
+                -epsilon,
+                epsilon
+            )
+            adversarial_tensor = torch.clamp(image_tensor + perturbation, 0, 1)
+            adversarial_tensor = adversarial_tensor.detach()
+
+            # Get prediction at this iteration
+            with torch.no_grad():
+                iter_pred = predict(model, adversarial_tensor)
+
+            # Compute current perturbation
+            current_pert = (adversarial_tensor - image_tensor).abs()
+            current_linf = float(current_pert.max())
+
+            # Check if adversarial
+            is_adversarial = (iter_pred.predicted_class != original_pred.predicted_class)
+
+            # Store iteration
+            iterations.append({
+                'iteration': i + 1,
+                'image': tensor_to_base64(adversarial_tensor),
+                'predicted_class': CIFAR10_CLASSES[iter_pred.predicted_class],
+                'confidence': float(iter_pred.confidence),
+                'perturbation_linf': current_linf,
+                'is_adversarial': is_adversarial
+            })
+
+        # Return all iterations
+        return JSONResponse(content={
+            'original_class': CIFAR10_CLASSES[original_pred.predicted_class],
+            'original_confidence': float(original_pred.confidence),
+            'total_iterations': pgd_iterations,
+            'epsilon': epsilon,
+            'alpha': pgd_alpha,
+            'iterations': iterations,
+            'final_success': iterations[-1]['is_adversarial']
+        })
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating attack iterations: {str(e)}\n{traceback.format_exc()}"
+        )
+
+
 @app.get("/example-results", response_model=List[ExampleResult])
 async def get_example_results():
     """

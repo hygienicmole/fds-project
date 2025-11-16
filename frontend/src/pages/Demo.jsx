@@ -1,6 +1,11 @@
+import { useState } from 'react';
 import AttackDemo from '../components/AttackDemo';
+import BatchAttack from '../components/BatchAttack';
+import RealTimeAttack from '../components/RealTimeAttack';
 
 const Demo = () => {
+  const [activeTab, setActiveTab] = useState('single');
+
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -13,8 +18,44 @@ const Demo = () => {
           </p>
         </div>
 
-        {/* Main Demo Component */}
-        <AttackDemo />
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8 space-x-4">
+          <button
+            onClick={() => setActiveTab('single')}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeTab === 'single'
+                ? 'bg-primary-600 text-white shadow-lg'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            Single Attack
+          </button>
+          <button
+            onClick={() => setActiveTab('realtime')}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeTab === 'realtime'
+                ? 'bg-primary-600 text-white shadow-lg'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            Real-Time Visualization
+          </button>
+          <button
+            onClick={() => setActiveTab('batch')}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              activeTab === 'batch'
+                ? 'bg-primary-600 text-white shadow-lg'
+                : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            Batch Attack
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'single' && <AttackDemo />}
+        {activeTab === 'realtime' && <RealTimeAttack />}
+        {activeTab === 'batch' && <BatchAttack />}
 
         {/* Educational Footer */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
