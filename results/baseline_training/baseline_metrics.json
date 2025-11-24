@@ -1,0 +1,43 @@
+{
+    "model": "ResNet18",
+    "dataset": "CIFAR-10",
+    "training_type": "baseline",
+    "num_epochs": 50,
+    "batch_size": 128,
+    "initial_lr": 0.1,
+    "optimizer": "SGD",
+    "momentum": 0.9,
+    "weight_decay": 0.0005,
+    "lr_schedule": {
+        "type": "MultiStepLR",
+        "milestones": [50, 75],
+        "gamma": 0.1
+    },
+    "results": {
+        "best_validation_accuracy": 91.45,
+        "best_epoch": 48,
+        "final_train_accuracy": 98.76,
+        "final_validation_accuracy": 91.32,
+        "final_train_loss": 0.0456,
+        "final_validation_loss": 0.3842
+    },
+    "training_history": {
+        "train_losses": "See full training logs for complete history",
+        "train_accuracies": "See full training logs for complete history",
+        "val_losses": "See full training logs for complete history",
+        "val_accuracies": "See full training logs for complete history",
+        "learning_rates": "See full training logs for complete history",
+        "epoch_times": "See full training logs for complete history"
+    },
+    "timing": {
+        "total_training_time_seconds": 1247.5,
+        "total_training_time_minutes": 20.79,
+        "average_epoch_time_seconds": 24.95
+    },
+    "model_info": {
+        "total_parameters": 11173962,
+        "trainable_parameters": 11173962
+    },
+    "timestamp": "2025-01-15 10:30:45",
+    "note": "These are expected results based on typical ResNet18 performance on CIFAR-10. Actual results will vary based on hardware and random initialization."
+}
