@@ -54,6 +54,8 @@ import sys
 import json
 from datetime import datetime
 import traceback
+import torchvision
+import torchvision.transforms as transforms
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -67,7 +69,7 @@ import config
 # ============================================================================
 
 # Model checkpoint path
-MODEL_PATH = os.path.join('models', 'baseline_best_model.pth')
+MODEL_PATH = os.path.join('models', 'best_model.pth')
 
 # CIFAR-10 class names
 CIFAR10_CLASSES = [
@@ -796,11 +798,9 @@ async def generate_attack(
                 'epsilon': epsilon,
                 'targeted': targeted,
                 'target_class': target_class,
-                **({
-                    'pgd_alpha': pgd_alpha,
-                    'pgd_iterations': pgd_iterations,
-                    'random_start': random_start
-                } if attack_type == 'pgd' else {})
+                'pgd_alpha': pgd_alpha,
+                'pgd_iterations': pgd_iterations,
+                'random_start': random_start
             },
             perturbation_stats=pert_stats
         )
@@ -808,9 +808,89 @@ async def generate_attack(
     except HTTPException:
         raise
     except Exception as e:
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=500,
-            detail=f"Error generating attack: {str(e)}\n{traceback.format_exc()}"
+            detail=f"Error generating attack: {str(e)}"
+        )
+
+
+@app.post("/attack-iterations")
+async def generate_attack_iterations(
+    file: UploadFile = File(...),
+    epsilon: float = Form(0.03),
+    pgd_alpha: float = Form(0.0075),
+    pgd_iterations: int = Form(20),
+    random_start: bool = Form(True)
+):
+    """
+    Generate PGD attack iterations for visualization.
+    """
+    try:
+        # Read and process image
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents)).convert('RGB')
+        image_tensor = preprocess_image(image)
+
+        # Get model and original prediction
+        model = model_manager.get_model()
+        original_pred = predict(model, image_tensor)
+        
+        # Use predicted class as true label (untargeted attack)
+        labels = torch.tensor([original_pred.predicted_class]).to(DEVICE)
+
+        # Create PGD attack
+        attack = model_manager.create_attack(
+            'pgd',
+            epsilon=epsilon,
+            alpha=pgd_alpha,
+            iterations=pgd_iterations,
+            random_start=random_start,
+            targeted=False
+        )
+
+        # Generate iterations
+        # Note: We rely on the modified PGD class that supports return_intermediate_images
+        intermediate_results = attack.generate(
+            image_tensor, 
+            labels, 
+            return_intermediate_images=True
+        )
+
+        # Process results for response
+        formatted_results = []
+        for res in intermediate_results:
+            # Convert image to base64
+            img_b64 = tensor_to_base64(res['image'])
+            
+            # Get class name
+            pred_class_idx = res['prediction']
+            pred_class_name = CIFAR10_CLASSES[pred_class_idx]
+            
+            formatted_results.append({
+                'iteration': res['iteration'],
+                'image': img_b64,
+                'predicted_class': pred_class_name,
+                'confidence': float(res['confidence']),
+                'is_adversarial': bool(res['is_adversarial']),
+                'perturbation_linf': float(res['perturbation_linf'])
+            })
+
+        # Check final success
+        final_success = formatted_results[-1]['is_adversarial']
+
+        return {
+            'original_class': original_pred.predicted_label,
+            'total_iterations': len(formatted_results),
+            'final_success': final_success,
+            'iterations': formatted_results
+        }
+
+    except Exception as e:
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating iterations: {str(e)}"
         )
 
 
@@ -1250,30 +1330,40 @@ async def get_example_results():
         # FGSM examples
         if 'fgsm' in results_data:
             for eps, data in results_data['fgsm'].items():
+                total = data.get('total', 10000)
+                clean_acc = data.get('correct_clean', 0) / total
+                adv_acc = data.get('correct_adv', 0) / total
+                asr = (total - data.get('correct_adv', 0)) / total
+                
                 examples.append(ExampleResult(
                     image_id=example_id,
                     attack_type="FGSM",
                     epsilon=float(eps),
                     original_class="various",
                     adversarial_class="various",
-                    attack_success=data['attack_success_rate'] > 0.5,
-                    original_confidence=data['clean_accuracy'],
-                    adversarial_confidence=data['adversarial_accuracy']
+                    attack_success=asr > 0.5,
+                    original_confidence=clean_acc,
+                    adversarial_confidence=adv_acc
                 ))
                 example_id += 1
 
         # PGD examples
         if 'pgd' in results_data:
             for config_name, data in list(results_data['pgd'].items())[:3]:
+                total = data.get('total', 10000)
+                clean_acc = data.get('correct_clean', 0) / total
+                adv_acc = data.get('correct_adv', 0) / total
+                asr = (total - data.get('correct_adv', 0)) / total
+
                 examples.append(ExampleResult(
                     image_id=example_id,
                     attack_type=config_name,
                     epsilon=data.get('epsilon', 0.03),
                     original_class="various",
                     adversarial_class="various",
-                    attack_success=data['attack_success_rate'] > 0.5,
-                    original_confidence=data['clean_accuracy'],
-                    adversarial_confidence=data['adversarial_accuracy']
+                    attack_success=asr > 0.5,
+                    original_confidence=clean_acc,
+                    adversarial_confidence=adv_acc
                 ))
                 example_id += 1
 
@@ -1283,6 +1373,73 @@ async def get_example_results():
         raise HTTPException(
             status_code=500,
             detail=f"Error loading example results: {str(e)}"
+        )
+
+
+@app.get("/cifar-samples")
+async def get_cifar_samples(num_samples: int = 20):
+    """
+    Get random CIFAR-10 test set samples.
+    
+    Args:
+        num_samples: Number of random samples to return (default: 20, max: 50)
+    
+    Returns:
+        List of sample images with their true labels
+    """
+    try:
+        # Validate num_samples
+        if num_samples < 1 or num_samples > 50:
+            raise HTTPException(
+                status_code=400,
+                detail="num_samples must be between 1 and 50"
+            )
+        
+        # Load CIFAR-10 test dataset (cached globally)
+        if not hasattr(get_cifar_samples, 'cifar_test'):
+            print("Loading CIFAR-10 test dataset...")
+            # Download=True will download if not present
+            get_cifar_samples.cifar_test = torchvision.datasets.CIFAR10(
+                root='./data',
+                train=False,
+                download=True
+            )
+            print(f"CIFAR-10 test dataset loaded: {len(get_cifar_samples.cifar_test)} images")
+        
+        dataset = get_cifar_samples.cifar_test
+        
+        # Get random indices
+        total_images = len(dataset)
+        indices = np.random.choice(total_images, size=min(num_samples, total_images), replace=False)
+        
+        samples = []
+        for idx in indices:
+            image, label = dataset[int(idx)]
+            
+            # Convert PIL image to base64
+            buffered = io.BytesIO()
+            image.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode()
+            
+            samples.append({
+                'id': int(idx),
+                'image': f"data:image/png;base64,{img_str}",
+                'label': CIFAR10_CLASSES[label],
+                'label_index': label
+            })
+        
+        return JSONResponse(content={
+            'samples': samples,
+            'total_available': total_images,
+            'num_returned': len(samples)
+        })
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error loading CIFAR-10 samples: {str(e)}\n{traceback.format_exc()}"
         )
 
 

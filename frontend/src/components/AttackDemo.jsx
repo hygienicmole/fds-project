@@ -15,6 +15,7 @@ import api, { imageUtils, CIFAR10_CLASSES, ATTACK_CONFIGS } from '../services/ap
 import { formatConfidence, getConfidenceColor, formatEpsilon } from '../utils/helpers';
 import Loading from './Loading';
 import ErrorMessage from './ErrorMessage';
+import CifarSelector from './CifarSelector';
 
 /**
  * AttackDemo Component
@@ -53,6 +54,8 @@ const AttackDemo = () => {
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
   const [showInfo, setShowInfo] = useState(false);
+  const [showCifarSelector, setShowCifarSelector] = useState(false);
+  const [cifarSample, setCifarSample] = useState(null);
 
   // Auto-calculate alpha as epsilon/4 when epsilon changes (optional)
   useEffect(() => {
@@ -83,12 +86,28 @@ const AttackDemo = () => {
    * Handle sample image selection (simulated)
    */
   const handleSampleSelect = () => {
-    // In a real implementation, you would fetch actual CIFAR-10 test images
-    setUseSample(true);
-    setFile(null);
-    setPreviewUrl(null);
-    setError('Sample image selection not implemented. Please upload an image instead.');
-    setResult(null);
+    setShowCifarSelector(true);
+  };
+
+  /**
+   * Handle CIFAR sample selection from modal
+   */
+  const handleCifarSelect = async (sample) => {
+    try {
+      // Convert base64 to File object
+      const blob = imageUtils.base64ToBlob(sample.image);
+      const file = new File([blob], `cifar_${sample.label}_${sample.id}.png`, { type: 'image/png' });
+
+      setFile(file);
+      setPreviewUrl(sample.image);
+      setCifarSample(sample);
+      setUseSample(true);
+      setError(null);
+      setResult(null);
+    } catch (err) {
+      setError('Failed to load CIFAR-10 sample');
+      console.error('Error loading CIFAR sample:', err);
+    }
   };
 
   /**
@@ -126,7 +145,7 @@ const AttackDemo = () => {
       setResult(response);
     } catch (err) {
       const errorMsg = err.response?.data?.detail ||
-                      'Failed to generate attack. Please check your backend server is running.';
+        'Failed to generate attack. Please check your backend server is running.';
       setError(errorMsg);
       console.error('Attack generation error:', err);
     } finally {
@@ -148,6 +167,7 @@ const AttackDemo = () => {
     setFile(null);
     setPreviewUrl(null);
     setUseSample(false);
+    setCifarSample(null);
     setResult(null);
     setError(null);
     setAttackType('fgsm');
@@ -239,15 +259,14 @@ const AttackDemo = () => {
                 </label>
               </div>
 
-              {/* Sample Selection (Placeholder) */}
+              {/* Sample Selection */}
               <div className="text-center">
                 <p className="text-sm text-gray-500 mb-2">or</p>
                 <button
                   onClick={handleSampleSelect}
                   className="btn-outline text-sm"
-                  disabled
                 >
-                  Select from CIFAR-10 Test Set (Coming Soon)
+                  Select from CIFAR-10 Test Set
                 </button>
               </div>
 
@@ -260,9 +279,20 @@ const AttackDemo = () => {
                     alt="Preview"
                     className="w-32 h-32 object-contain mx-auto bg-white border border-gray-200 rounded"
                   />
-                  <p className="text-xs text-gray-600 mt-2 text-center truncate">
-                    {file?.name}
-                  </p>
+                  {cifarSample ? (
+                    <div className="mt-2 text-center">
+                      <p className="text-sm font-semibold text-primary-600">
+                        {cifarSample.label}
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        CIFAR-10 Sample #{cifarSample.id}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-600 mt-2 text-center truncate">
+                      {file?.name}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -284,22 +314,20 @@ const AttackDemo = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setAttackType('fgsm')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      attackType === 'fgsm'
-                        ? 'border-primary-600 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                    className={`p-4 rounded-lg border-2 transition-all ${attackType === 'fgsm'
+                      ? 'border-primary-600 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                      }`}
                   >
                     <div className="font-semibold mb-1">FGSM</div>
                     <div className="text-xs text-gray-600">One-step attack</div>
                   </button>
                   <button
                     onClick={() => setAttackType('pgd')}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      attackType === 'pgd'
-                        ? 'border-primary-600 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                    className={`p-4 rounded-lg border-2 transition-all ${attackType === 'pgd'
+                      ? 'border-primary-600 bg-primary-50 text-primary-700'
+                      : 'border-gray-200 hover:border-gray-300'
+                      }`}
                   >
                     <div className="font-semibold mb-1">PGD</div>
                     <div className="text-xs text-gray-600">Iterative attack</div>
@@ -504,11 +532,10 @@ const AttackDemo = () => {
                     <Eye className="h-5 w-5 mr-2 text-primary-600" />
                     3. Results
                   </h3>
-                  <span className={`px-4 py-2 rounded-full text-sm font-semibold ${
-                    result.success
-                      ? 'bg-red-100 text-red-800'
-                      : 'bg-green-100 text-green-800'
-                  }`}>
+                  <span className={`px-4 py-2 rounded-full text-sm font-semibold ${result.success
+                    ? 'bg-red-100 text-red-800'
+                    : 'bg-green-100 text-green-800'
+                    }`}>
                     {result.success ? (
                       <span className="flex items-center">
                         <AlertCircle className="h-4 w-4 mr-1" />
@@ -607,14 +634,12 @@ const AttackDemo = () => {
 
                   {/* Adversarial */}
                   <div className="space-y-2">
-                    <div className={`border rounded-lg p-3 ${
-                      result.success
-                        ? 'bg-red-50 border-red-200'
-                        : 'bg-gray-50 border-gray-200'
-                    }`}>
-                      <div className={`text-xs font-medium mb-1 ${
-                        result.success ? 'text-red-700' : 'text-gray-700'
+                    <div className={`border rounded-lg p-3 ${result.success
+                      ? 'bg-red-50 border-red-200'
+                      : 'bg-gray-50 border-gray-200'
                       }`}>
+                      <div className={`text-xs font-medium mb-1 ${result.success ? 'text-red-700' : 'text-gray-700'
+                        }`}>
                         Adversarial Prediction
                       </div>
                       <div className={`text-lg font-bold ${getConfidenceColor(result.adversarial_prediction.confidence)}`}>
@@ -767,6 +792,13 @@ const AttackDemo = () => {
           )}
         </div>
       </div>
+
+      {/* CIFAR-10 Selector Modal */}
+      <CifarSelector
+        isOpen={showCifarSelector}
+        onClose={() => setShowCifarSelector(false)}
+        onSelect={handleCifarSelect}
+      />
     </div>
   );
 };

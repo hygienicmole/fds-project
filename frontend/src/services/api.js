@@ -231,6 +231,18 @@ const api = {
     const response = await apiClient.get('/health');
     return response.data;
   },
+
+  /**
+   * Get random CIFAR-10 test set samples
+   * @param {number} numSamples - Number of samples to fetch (default: 20, max: 50)
+   * @returns {Promise<Object>} CIFAR-10 samples with images and labels
+   */
+  getCifarSamples: async (numSamples = 20) => {
+    const response = await apiClient.get('/cifar-samples', {
+      params: { num_samples: numSamples },
+    });
+    return response.data;
+  },
 };
 
 /**

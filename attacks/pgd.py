@@ -187,8 +187,9 @@ class PGD:
         x: torch.Tensor,
         y: torch.Tensor,
         track_progress: bool = False,
-        return_perturbation: bool = False
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, Dict]]:
+        return_perturbation: bool = False,
+        return_intermediate_images: bool = False
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, Dict], List[Dict]]:
         """
         Generate adversarial examples using PGD
 
@@ -219,11 +220,13 @@ class PGD:
             y: Labels (true labels for untargeted, target labels for targeted)
             track_progress: If True, track metrics at each iteration
             return_perturbation: If True, also return the perturbation
+            return_intermediate_images: If True, return list of intermediate results
 
         Returns:
             x_adv: Adversarial examples
             perturbation: (optional) The final perturbation δ
             history: (optional) Attack progression history
+            intermediate_results: (optional) List of dictionaries with intermediate images and metrics
         """
         # Set model to evaluation mode
         self.model.eval()
@@ -257,6 +260,28 @@ class PGD:
                 'linf_norms': [],
                 'l2_norms': []
             }
+
+        # Initialize intermediate results if requested
+        intermediate_results = []
+        if return_intermediate_images:
+            # Add initial state (iteration 0)
+            with torch.no_grad():
+                outputs = self.model(x_adv)
+                probs = torch.softmax(outputs, dim=1)
+                conf, pred = torch.max(probs, dim=1)
+                
+                # Calculate perturbation
+                pert = x_adv - x_original
+                linf = pert.abs().max().item()
+                
+                intermediate_results.append({
+                    'iteration': 0,
+                    'image': x_adv.clone().detach().cpu(),
+                    'prediction': pred.item(),
+                    'confidence': conf.item(),
+                    'is_adversarial': (pred != y).item() if not self.targeted else (pred == y).item(),
+                    'perturbation_linf': linf
+                })
 
         # ═══════════════════════════════════════════════════════════════════
         # STEP 2: ITERATIVE ATTACK
@@ -362,6 +387,26 @@ class PGD:
                     history['linf_norms'].append(linf_norm)
                     history['l2_norms'].append(l2_norm)
 
+            # Store intermediate results if requested
+            if return_intermediate_images:
+                with torch.no_grad():
+                    # We need to re-evaluate because x_adv changed
+                    outputs = self.model(x_adv)
+                    probs = torch.softmax(outputs, dim=1)
+                    conf, pred = torch.max(probs, dim=1)
+                    
+                    pert = x_adv - x_original
+                    linf = pert.abs().max().item()
+                    
+                    intermediate_results.append({
+                        'iteration': iteration + 1,
+                        'image': x_adv.clone().detach().cpu(),
+                        'prediction': pred.item(),
+                        'confidence': conf.item(),
+                        'is_adversarial': (pred != y).item() if not self.targeted else (pred == y).item(),
+                        'perturbation_linf': linf
+                    })
+
         # ═══════════════════════════════════════════════════════════════════
         # STEP 3: RETURN RESULTS
         # ═══════════════════════════════════════════════════════════════════
@@ -374,7 +419,10 @@ class PGD:
             self.attack_history = history
 
         # Return based on what was requested
-        if track_progress and return_perturbation:
+        # Return based on what was requested
+        if return_intermediate_images:
+            return intermediate_results
+        elif track_progress and return_perturbation:
             return x_adv.detach(), self.last_perturbation, history
         elif track_progress:
             return x_adv.detach(), history

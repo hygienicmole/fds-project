@@ -50,6 +50,27 @@
   .bg-gradient-secondary {
     @apply bg-gradient-to-r from-secondary-600 to-secondary-700;
   }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Prevent overflow in containers */
+  .overflow-safe {
+    max-width: 100%;
+    overflow: hidden;
+  }
 }
 
 /* Custom scrollbar */

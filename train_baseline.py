@@ -532,7 +532,7 @@ def main():
         scheduler=scheduler,
         criterion=criterion,
         device=device,
-        num_epochs=50
+        num_epochs=config.EPOCHS
     )
 
     # Train
