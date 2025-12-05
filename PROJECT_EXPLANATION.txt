@@ -1,0 +1,61 @@
+PROJECT PRESENTATION GUIDE: ADVERSARIAL MACHINE LEARNING
+======================================================
+
+PROJECT TITLE
+-------------
+Adversarial Robustness of ResNet18 on CIFAR-10: FGSM vs. PGD
+
+1. PROJECT OBJECTIVE
+--------------------
+The goal of this project is to demonstrate how vulnerable modern "Deep Learning" models are to adversarial attacks. You are showing that a computer vision model (ResNet18) that performs very well on normal images can be easily tricked by adding invisible noise.
+
+2. KEY COMPONENTS
+-----------------
+*   **Dataset**: CIFAR-10.
+    *   What is it? A standard dataset of 60,000 32x32 color images in 10 classes (Airplane, Car, Bird, Cat, Deer, Dog, Frog, Horse, Ship, Truck).
+*   **Model**: ResNet18.
+    *   Why this model? It's a standard, high-performance architecture for image classification using "Residual Connections" to train deep networks effectively.
+*   **Tech Stack**:
+    *   **Backend**: Python, PyTorch (for AI), FastAPI (for the server).
+    *   **Frontend**: React (for the dashboard/UI).
+
+3. THE ATTACKS (THE CORE MATH)
+------------------------------
+You have implemented two specific attacks. You must know the difference:
+
+A. FGSM (Fast Gradient Sign Method)
+   *   **Type**: "One-Shot" Attack (Fast, simple).
+   *   **How it works**: It calculates the gradient (direction of steepest ascent for loss) and takes ONE big step in that direction.
+   *   **Intuition**: "If moving a pixel slightly red makes the model think it's a dog, I will make it A LOT redder."
+   *   **Pros**: Very fast to generate.
+   *   **Cons**: Easy to defend against; not very strong.
+
+B. PGD (Projected Gradient Descent)
+   *   **Type**: "Iterative" Attack (Slow, powerful).
+   *   **How it works**: It's like applying FGSM multiple times in small steps. After each step, it "clips" the image to make sure the noise doesn't become too obvious (Projection).
+   *   **Intuition**: "I'll nudge the pixel, check, nudge again, check, and find the perfect spot to trick the model while keeping the image looking normal."
+   *   **Pros**: Extremely effective; considered the "strongest first-order attack".
+   *   **Cons**: Much slower (requires multiple forward/backward passes).
+
+4. PROJECT ARCHITECTURE
+-----------------------
+*   `app/backend.py`: The API server. It receives images from the frontend and runs the PyTorch models.
+*   `attacks/`: Contains the actual python classes for `FGSM` and `PGD`.
+*   `models/`: Defines the ResNet18 neural network.
+
+5. KEY RESULTS TO MENTION
+-------------------------
+1.  **Vulnerability**: A standard ResNet18 model has ~93% accuracy on clean images, but this can drop to <10% under a strong PGD attack.
+2.  **Imperceptibility**: The attacks use an "Epsilon" (ε) of 8/255. This means no pixel changes by more than ~3%. To a human, the image looks identical.
+3.  **Comparison**: PGD is much more effective than FGSM at breaking the model, but takes longer to run.
+
+6. POTENTIAL INTERVIEW QUESTIONS
+--------------------------------
+Q: Why do adversarial examples exist?
+A: Deep learning models are "linear" in high-dimensional space. Many small changes to pixels add up to a massive change in the output activation.
+
+Q: What is Epsilon?
+A: It controls the "strength" of the attack. It limits how much we are allowed to change the pixels. Higher epsilon = easier to trick model, but easier for humans to spot.
+
+Q: How can we fix this?
+A: "Adversarial Training" - training the model on attacked images so it learns to ignore the noise. (Your code supports this in `train.py`).
